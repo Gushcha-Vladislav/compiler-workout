@@ -36,19 +36,43 @@ let update x v s = fun y -> if x = y then v else s y
 let s = update "x" 1 @@ update "y" 2 @@ update "z" 3 @@ update "t" 4 empty
 
 (* Some testing; comment this definition out when submitting the solution. *)
-let _ =
+(*let _ =
   List.iter
     (fun x ->
        try  Printf.printf "%s=%d\n" x @@ s x
        with Failure s -> Printf.printf "%s\n" s
-    ) ["x"; "a"; "y"; "z"; "t"; "b"]
+    ) ["x"; "a"; "y"; "z"; "t"; "b"] *)
+
+let toBool b = b <> 0
+let toInt b = if b then 1 else 0 
+
+let compare f e1 e2 = toInt ( f e1 e2 )
+let logic f e1 e2 = toInt @@ f (toBool e1) @@ toBool e2
+
+let action op = match op with
+                  | "+"  -> ( + )
+                  | "-"  -> ( - )
+                  | "*"  -> ( * )
+                  | "/"  -> ( / )
+                  | "%"  -> ( mod )
+                  | "<"  -> compare ( < )
+                  | ">"  -> compare ( > )
+                  | "==" -> compare ( = )
+                  | "<=" -> compare ( <= )
+                  | ">=" -> compare ( >= )
+                  | "!=" -> compare ( <> )
+                  | "&&" -> logic( && )
+                  | "!!" -> logic( || )
+
 
 (* Expression evaluator
 
      val eval : state -> expr -> int
- 
+
    Takes a state and an expression, and returns the value of the expression in 
    the given state.
 *)
-let eval = failwith "Not implemented yet"
-                    
+let rec eval s e = match e with
+                      | Const c -> c
+                      | Var v -> s v
+                      | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
