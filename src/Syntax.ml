@@ -95,7 +95,6 @@ module Stmt =
         | Assign (var, exp) -> (Expr.update var (Expr.eval st exp) st), input, output
         | Seq (f, s)       -> eval (eval c f) s
         | Write exp      -> st, input, (output @ [Expr.eval st exp])
-                                                         
   end
 
 (* The top-level definitions *)
