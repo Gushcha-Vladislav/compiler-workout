@@ -41,8 +41,28 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-    let eval _ = failwith "Not implemented yet"
-
+    let toBool b = b <> 0
+    let toInt b = if b then 1 else 0
+    let compare f e1 e2 = toInt ( f e1 e2 )
+    let logic f e1 e2 = toInt @@ f (toBool e1) @@ toBool e2
+    let action op = match op with
+                      | "+"  -> ( + )
+                      | "-"  -> ( - )
+                      | "*"  -> ( * )
+                      | "/"  -> ( / )
+                      | "%"  -> ( mod )
+                      | "<"  -> compare ( < )
+                      | ">"  -> compare ( > )
+                      | "==" -> compare ( = )
+                      | "<=" -> compare ( <= )
+                      | ">=" -> compare ( >= )
+                      | "!=" -> compare ( <> )
+                      | "&&" -> logic( && )
+                      | "!!" -> logic( || )
+    let rec eval s e = match e with
+                      | Const c -> c
+                      | Var v -> s v
+                      | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
   end
                     
 (* Simple statements: syntax and sematics *)
@@ -65,7 +85,16 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let eval _ = failwith "Not implemented yet"
+    let rec eval c op =
+      let (st, input, output) = c in
+      match op with
+        | Read var	-> (match input with
+                | x::rest -> (Expr.update var x st), rest, output
+                | [] -> failwith("No more input")
+              )
+        | Assign (var, exp) -> (Expr.update var (Expr.eval st exp) st), input, output
+        | Seq (f, s)       -> eval (eval c f) s
+        | Write exp      -> st, input, (output @ [Expr.eval st exp])
                                                          
   end
 
