@@ -62,12 +62,13 @@ module Expr =
                       | "!=" -> compare ( <> )
                       | "&&" -> logic( && )
                       | "!!" -> logic( || )
-                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" name)
+                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" op)
+
     let rec eval s e = match e with
                       | Const c -> c
                       | Var v -> s v
                       | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
-                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" name)
+                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" e)
 
     (* Expression parser. You can use the following terminals:
 
