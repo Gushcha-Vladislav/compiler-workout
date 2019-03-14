@@ -30,7 +30,7 @@ let instruct sm evt =
 	match evt with
 	| LD var   -> [st var] @ stack, f
 	| ST var   -> (match stack with
-		              | x::rest -> rest, (Syntax.Expr.update var x st, input, output)
+		              | x::rest -> rest, (Language.Expr.update var x st, input, output)
                 )
 	| READ     -> (match input with
 		              | x::rest -> [x] @ stack, (st, rest, output)
@@ -39,7 +39,7 @@ let instruct sm evt =
 		              | x::rest -> rest, (st, input, output @ [x])
                 )
 	| BINOP op -> (match stack with
-	| y::x::rest -> [Syntax.Expr.action op x y] @ rest, f
+	| y::x::rest -> [Language.Expr.action op x y] @ rest, f
 			)
 	| CONST x  -> [x] @ stack, f
 let eval sm prog = List.fold_left instruct sm prog
@@ -60,13 +60,13 @@ let run p i = let (_, (_, _, o)) = eval ([], (Language.Expr.empty, i, [])) p in 
    stack machine
  *)
  let rec comp exp = match exp with
-	| Syntax.Expr.Binop (op, l, r) -> (comp l) @ (comp r) @ [BINOP op]
-	| Syntax.Expr.Var x                   -> [LD x]
-	| Syntax.Expr.Const x                 -> [CONST x]
+	| Language.Expr.Binop (op, l, r) -> (comp l) @ (comp r) @ [BINOP op]
+	| Language.Expr.Var x                   -> [LD x]
+	| Language.Expr.Const x                 -> [CONST x]
 
 
 let rec compile program = match program with
-	| Syntax.Stmt.Write exp               -> (comp exp) @ [WRITE]
-	| Syntax.Stmt.Seq (f, s)        -> (compile f) @ (compile s)
-	| Syntax.Stmt.Assign (cur, exp)      -> (comp exp) @ [ST cur]
-	| Syntax.Stmt.Read cur                -> [READ; ST cur]
+	| Language.Stmt.Write exp               -> (comp exp) @ [WRITE]
+	| Language.Stmt.Seq (f, s)        -> (compile f) @ (compile s)
+	| Language.Stmt.Assign (cur, exp)      -> (comp exp) @ [ST cur]
+	| Language.Stmt.Read cur                -> [READ; ST cur]
