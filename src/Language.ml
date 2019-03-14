@@ -49,24 +49,23 @@ module Expr =
     let compare f e1 e2 = toInt ( f e1 e2 )
     let logic f e1 e2 = toInt @@ f (toBool e1) @@ toBool e2
     let action op = match op with
-        | "+" -> ( + )
-        | "-"  -> ( - )
-        | "*"  -> ( * )
-        | "/"  -> ( / )
-        | "%"  -> ( mod )
-        | "<"  -> compare ( < )
-        | ">"  -> compare ( > )
-        | "==" -> compare ( = )
-        | "<=" -> compare ( <= )
-        | ">=" -> compare ( >= )
-        | "!=" -> compare ( <> )
-        | "&&" -> logic( && )
-        | "!!" -> logic( || )
-
+                      | "+"  -> ( + )
+                      | "-"  -> ( - )
+                      | "*"  -> ( * )
+                      | "/"  -> ( / )
+                      | "%"  -> ( mod )
+                      | "<"  -> compare ( < )
+                      | ">"  -> compare ( > )
+                      | "==" -> compare ( = )
+                      | "<=" -> compare ( <= )
+                      | ">=" -> compare ( >= )
+                      | "!=" -> compare ( <> )
+                      | "&&" -> logic( && )
+                      | "!!" -> logic( || )
     let rec eval s e = match e with
-      | Const c -> c
-      | Var v -> s v
-      | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
+                      | Const c -> c
+                      | Var v -> s v
+                      | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
 
     (* Expression parser. You can use the following terminals:
 
@@ -76,25 +75,25 @@ module Expr =
     *)
     let parse_binop operator = ostap(- $(operator)), (fun x y -> Binop (operator, x, y))
     ostap (
-        expr:
-            !(Ostap.Util.expr
-              (fun x -> x)
-              (Array.map (fun (a, operator) -> a, List.map parse_binop operator)
-                [|
-                  `Lefta, ["!!"];
-                  `Lefta, ["&&"];
-                  `Nona , ["=="; "!="; "<="; "<"; ">="; ">"];
-                  `Lefta, ["+"; "-"];
-                  `Lefta, ["*"; "/"; "%"];
-                |]
-              )
-              primary
-              );
-        primary:
-              c: DECIMAL {Const c}
-            | x: IDENT {Var x}
-            | -"(" expr -")"
-    )
+      expr:
+        !(Ostap.Util.expr
+          (fun x -> x)
+          (Array.map (fun (a, operator) -> a, List.map parse_binop operator)
+            [|
+              `Lefta, ["!!"];
+              `Lefta, ["&&"];
+              `Nona , ["=="; "!="; "<="; "<"; ">="; ">"];
+              `Lefta, ["+"; "-"];
+              `Lefta, ["*"; "/"; "%"];
+            |]
+          )
+          primary
+          );
+      primary:
+          c: DECIMAL {Const c}
+        | x: IDENT {Var x}
+        | -"(" expr -")"
+    )	    )
 
   end
                     
@@ -119,7 +118,8 @@ module Stmt =
        Takes a configuration and a statement, and returns another configuration
     *)
     let rec eval c op =
-     let (st, input, output) = c in match op with
+     let (st, input, output) = c in
+     match op with
         | Read var	-> (match input with
                 | x::rest -> (Expr.update var x st), rest, output
                 | [] -> failwith("No more input")
