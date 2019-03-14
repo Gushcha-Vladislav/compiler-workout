@@ -23,8 +23,26 @@ type config = int list * Stmt.config
      val eval : config -> prg -> config
 
    Takes a configuration and a program, and returns a configuration as a result
-*)                         
-let rec eval conf prog = failwith "Not yet implemented"
+ *)                         
+let instruct sm evt =
+	let (stack, f) = sm in
+	let (st, input, output) = f in
+	match evt with
+	| LD var   -> [st var] @ stack, f
+	| ST var   -> (match stack with
+		              | x::rest -> rest, (Language.Expr.update var x st, input, output)
+                )
+	| READ     -> (match input with
+		              | x::rest -> [x] @ stack, (st, rest, output)
+				)
+	| WRITE    -> (match stack with
+		              | x::rest -> rest, (st, input, output @ [x])
+                )
+	| BINOP op -> (match stack with
+	| y::x::rest -> [Language.Expr.action op x y] @ rest, f
+			)
+	| CONST x  -> [x] @ stack, f
+let eval sm prog = List.fold_left instruct sm prog
 
 (* Top-level evaluation
 
@@ -52,3 +70,15 @@ let rec compile =
   | Stmt.Read x        -> [READ; ST x]
   | Stmt.Write e       -> expr e @ [WRITE]
   | Stmt.Assign (x, e) -> expr e @ [ST x]
+ *)
+ let rec comp exp = match exp with
+	| Language.Expr.Binop (op, l, r) -> (comp l) @ (comp r) @ [BINOP op]
+	| Language.Expr.Var x                   -> [LD x]
+	| Language.Expr.Const x                 -> [CONST x]
+
+
+let rec compile program = match program with
+	| Language.Stmt.Write exp               -> (comp exp) @ [WRITE]
+	| Language.Stmt.Seq (f, s)        -> (compile f) @ (compile s)
+	| Language.Stmt.Assign (cur, exp)      -> (comp exp) @ [ST cur]
+	| Language.Stmt.Read cur                -> [READ; ST cur]
