@@ -70,15 +70,3 @@ let rec compile =
   | Stmt.Read x        -> [READ; ST x]
   | Stmt.Write e       -> expr e @ [WRITE]
   | Stmt.Assign (x, e) -> expr e @ [ST x]
- *)
- let rec comp exp = match exp with
-	| Language.Expr.Binop (op, l, r) -> (comp l) @ (comp r) @ [BINOP op]
-	| Language.Expr.Var x                   -> [LD x]
-	| Language.Expr.Const x                 -> [CONST x]
-
-
-let rec compile program = match program with
-	| Language.Stmt.Write exp               -> (comp exp) @ [WRITE]
-	| Language.Stmt.Seq (f, s)        -> (compile f) @ (compile s)
-	| Language.Stmt.Assign (cur, exp)      -> (comp exp) @ [ST cur]
-	| Language.Stmt.Read cur                -> [READ; ST cur]
