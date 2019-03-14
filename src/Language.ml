@@ -93,7 +93,7 @@ module Expr =
           c: DECIMAL {Const c}
         | x: IDENT {Var x}
         | -"(" expr -")"
-    )	    )
+    )
 
   end
                     
