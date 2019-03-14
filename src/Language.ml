@@ -68,7 +68,6 @@ module Expr =
                       | Const c -> c
                       | Var v -> s v
                       | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
-                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" e)
 
     (* Expression parser. You can use the following terminals:
 
