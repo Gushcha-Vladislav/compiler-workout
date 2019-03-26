@@ -1,10 +1,15 @@
 (* Opening a library for generic programming (https://github.com/dboulytchev/GT).
    The library provides "@type ..." syntax extension and plugins like show, etc.
 *)
+let counter = ref 0;;
+
+let next_var() = let result = "__repeat_variable__" ^ string_of_int !counter in
+                 counter := !counter + 1;
+                 result;;
 open GT
 
 (* Opening a library for combinator-based syntax analysis *)
-open Ostap.Combinators
+open Ostap
        
 (* Simple expressions: syntax and semantics *)
 module Expr =
@@ -44,7 +49,31 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)                                                       
-    let eval st expr = failwith "Not yet implemented"
+
+    let toBool b = b <> 0
+    let toInt b = if b then 1 else 0
+    let compare f e1 e2 = toInt ( f e1 e2 )
+    let logic f e1 e2 = toInt @@ f (toBool e1) @@ toBool e2
+    let action op = match op with
+                      | "+"  -> ( + )
+                      | "-"  -> ( - )
+                      | "*"  -> ( * )
+                      | "/"  -> ( / )
+                      | "%"  -> ( mod )
+                      | "<"  -> compare ( < )
+                      | ">"  -> compare ( > )
+                      | "==" -> compare ( = )
+                      | "<=" -> compare ( <= )
+                      | ">=" -> compare ( >= )
+                      | "!=" -> compare ( <> )
+                      | "&&" -> logic( && )
+                      | "!!" -> logic( || )
+                      | _ -> failwith (Printf.sprintf "Unsupported binary operator %s" op)
+
+    let rec eval s e = match e with
+                      | Const c -> c
+                      | Var v -> s v
+                      | Binop (op, e1, e2) -> action op (eval s e1)  @@ eval s e2
 
     (* Expression parser. You can use the following terminals:
 
@@ -52,10 +81,27 @@ module Expr =
          DECIMAL --- a decimal constant [0-9]+ as a string
                                                                                                                   
     *)
-    ostap (                                      
-      parse: empty {failwith "Not yet implemented"}
+    let parse_binop operator = ostap(- $(operator)), (fun x y -> Binop (operator, x, y))
+    ostap (
+      expr:
+        !(Ostap.Util.expr
+          (fun x -> x)
+          (Array.map (fun (a, operator) -> a, List.map parse_binop operator)
+            [|
+              `Lefta, ["!!"];
+              `Lefta, ["&&"];
+              `Nona , ["=="; "!="; "<="; "<"; ">="; ">"];
+              `Lefta, ["+"; "-"];
+              `Lefta, ["*"; "/"; "%"];
+            |]
+          )
+          primary
+          );
+      primary:
+          c: DECIMAL {Const c}
+        | x: IDENT {Var x}
+        | -"(" expr -")"
     )
-    
   end
                     
 (* Simple statements: syntax and sematics *)
@@ -71,7 +117,7 @@ module Stmt =
     (* empty statement                  *) | Skip
     (* conditional                      *) | If     of Expr.t * t * t
     (* loop with a pre-condition        *) | While  of Expr.t * t
-    (* loop with a post-condition       *) (* add yourself *)  with show
+    (* loop with a post-condition       *) | RepeatUntil of t * Expr.t  with show
                                                                     
     (* The type of configuration: a state, an input stream, an output stream *)
     type config = Expr.state * int list * int list 
@@ -82,15 +128,61 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let rec eval conf stmt = failwith "Not yet implemented"
-                               
+
+    let rec eval c op =
+     let (st, input, output) = c in
+     match op with
+        | Read var	-> (match input with
+                | x::rest -> (Expr.update var x st), rest, output
+                | [] -> failwith("No more input")
+              )
+        | Assign (var, exp) -> (Expr.update var (Expr.eval st exp) st), input, output
+        | Seq (f, s)       -> eval (eval c f) s
+        | Write exp      -> st, input, (output @ [Expr.eval st exp])
+        | Skip                              -> (st, input, output)
+        | If (e, thenStmt, elseStmt)        -> eval (st, input, output) (if Expr.toBool (Expr.eval st e) then thenStmt else elseStmt)
+        | While (e, wStmt)                  -> if Expr.toBool (Expr.eval st e) then eval (eval (st, input, output) wStmt) op else (st, input, output)
+        | RepeatUntil (ruStmt, e)           -> let (sNew, iNew, oNew) = eval (st, input, output) ruStmt in
+                                               if not (Expr.toBool (Expr.eval sNew e)) then eval (sNew, iNew, oNew) op else (sNew, iNew, oNew)
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not yet implemented"}
+        simple:
+              "read" "(" x:IDENT ")"         {Read x}
+            | "write" "(" e:!(Expr.expr) ")" {Write e}
+            | x:IDENT ":=" e:!(Expr.expr)    {Assign (x, e)};
+        ifStmt:
+            "if" e:!(Expr.expr) "then" thenBody:parse
+        elifBranches: (%"elif" elifE:!(Expr.expr) %"then" elifBody:!(parse))*
+        elseBranch: (%"else" elseBody:!(parse))?
+        "fi" {
+               let elseBranch' = match elseBranch with
+                 | Some x -> x
+                     | None   -> Skip in
+               let expandedElseBody = List.fold_right (fun (e', body') else' -> If (e', body', else')) elifBranches elseBranch' in
+               If (e, thenBody, expandedElseBody)
+             };
+        whileStmt:
+            "while" e:!(Expr.expr) "do" body:parse "od" {While (e, body)};
+        forStmt:
+            "for" initStmt:stmt "," whileCond:!(Expr.expr) "," forStmt:stmt
+            "do" body:parse "od" {Seq (initStmt, While (whileCond, Seq (body, forStmt)))};
+        repeatUntilStmt:
+            "repeat" body:parse "until" e:!(Expr.expr) {RepeatUntil (body, e)};
+        control:
+              ifStmt
+            | whileStmt
+            | forStmt
+            | repeatUntilStmt
+            | "skip" {Skip};
+        stmt:
+              simple
+            | control;
+        parse:
+              stmt1:stmt ";" rest:parse {Seq (stmt1, rest)}
+            | stmt
     )
-      
-  end
 
+  end
 (* The top-level definitions *)
 
 (* The top-level syntax category is statement *)
